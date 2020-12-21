@@ -5,7 +5,7 @@
 # Created: Wednesday, 16th December 2020 9:23:18 pm
 # Author: Rakibul Yeasin (ryeasin03@gmail.com)
 # -----
-# Last Modified: Tuesday, 22nd December 2020 2:21:47 am
+# Last Modified: Tuesday, 22nd December 2020 3:09:39 am
 # Modified By: Rakibul Yeasin (ryeasin03@gmail.com)
 # -----
 # Copyright (c) 2020 Slishee
@@ -13,6 +13,7 @@
 
 import os
 import re
+import sys
 import requests as rq
 from urllib.parse import unquote
 from random import randint
@@ -40,6 +41,11 @@ def filter(url: str) -> str:
     Only allows urls with '?'
     """
     if url.find("?") != -1: return url
+
+def filter_ms(url):
+    regex = r".*(http.*\/.*)"
+    new_url = re.findall(regex, url)
+    return new_url[0]
 
 def ask(dork: str, *args: tuple) -> None:
     """
@@ -78,16 +84,16 @@ def bing(dork: str, *args: tuple) -> None:
         data = rq.get(url, headers=headers).text
         http = re.findall(r'<a\shref=\"http:\/\/(.*?)\">', data)
         https = re.findall(r'<a\shref=\"https:\/\/(.*?)\">', data)
-        for h in http:
-            a = unquote(h).split(" ")[0].replace('"', '')
+        http = ["http://"+i for i in http]
+        https = ["https://"+i for i in https]
+        links = [*http, *https]
+        for l in links:
+            a = unquote(l).split(" ")[0].replace('"', '')
+            if l.find("www.microsofttranslator.com") != -1:
+                a = filter_ms(a)
             if filter(a):
-                print(f"[+] Found: http://{unquote(a)}")
-                storage.write(f"http://{unquote(a)}\n")
-        for s in https:
-            a = unquote(s).split(" ")[0].replace('"', '')
-            if filter(a):
-                print(f"[+] Found: https://{unquote(a)}")
-                storage.write(f"https://{unquote(a)}\n")
+                print(f"[+] Found: {unquote(a)}")
+                storage.write(f"{unquote(a)}\n")
 
 def google(dork: str, *args: tuple) -> None:
     """
@@ -122,12 +128,13 @@ def google(dork: str, *args: tuple) -> None:
             res = rq.get(nurl, headers=headers).text
             regex = r'\"url\":\s\"(.*)\"'
             urls = re.findall(regex, res)
-            urls.pop()
-            if urls is not None:
-                for res_url in urls:
-                    if res_url.startswith("http") and filter(res_url):
-                        print(f"[+] Found: {unquote(res_url)}")
-                        storage.write(unquote(res_url) + "\n")
+            if urls:
+                urls.pop()
+                if urls is not None:
+                    for res_url in urls:
+                        if res_url.startswith("http") and filter(res_url):
+                            print(f"[+] Found: {unquote(res_url)}")
+                            storage.write(unquote(res_url) + "\n")
         # Increment Page Number
         i += 1
 
@@ -154,11 +161,19 @@ if __name__ == "__main__":
 
             # Plain
             # ask(dork)
+            # bing(dork)
 
     except KeyboardInterrupt:
         storage.close()
+        sys.exit()
 
+    except ValueError:
+        sys.exit()
+
+    except Exception as e:
+        print(e)
     # We should hanle more errors like: HTTPError and so on
     finally:
         storage.close()
+        sys.exit()
     storage.close()
